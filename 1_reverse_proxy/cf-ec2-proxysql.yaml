@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    ConstraintDescription: key name doesn't exist
+  PubKey:
+    Description: Public Key for secuser
+    Type: String
+  SGIngressSSH:
+    Description: ID of an existing Security Group to allow ssh connection
+    Type: 'AWS::EC2::SecurityGroup::Id'
+    ConstraintDescription: Security Group ID doesn't exist
+  VpcId:
+    Description: ID of an existing VPC
+    Type:  'AWS::EC2::VPC::Id'
+    ConstraintDescription: VPC ID doesn't exist
+  SubnetId:
+    Description: ID of an existing SubnetId
+    Type:  'AWS::EC2::Subnet::Id'
+    ConstraintDescription: Subnet ID doesn't exist
+  InstanceType:
+    AllowedValues:
+    - t3.micro
+    Default: t3.micro
+    Type: String
+    Description: EC2 instance type. t3.micro is only acceptable type of instance
+  LatestAmiId:
+    Type:  'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+Resources:
+  EC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: !Ref 'InstanceType'
+      KeyName: !Ref 'KeyName'
+      ImageId: !Ref 'LatestAmiId'
+      SubnetId: !Ref 'SubnetId'
+      SecurityGroupIds: 
+        - !GetAtt ProxySQLSecurityGroup.GroupId
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash -x
+            adduser --user-group cfuser
+            mkdir /home/cfuser/.ssh
+            chmod 700 /home/cfuser/.ssh
+            touch /home/cfuser/.ssh/authorized_keys
+            chmod 600 /home/cfuser/.ssh/authorized_keys
+            chown -R cfuser:cfuser /home/cfuser/.ssh
+            echo ${PubKey} >> /home/cfuser/.ssh/authorized_keys
+            touch /etc/sudoers.d/cfuser
+            echo 'cfuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/cfuser
+            sed -i 's/#Port 22/Port 40022/g' /etc/ssh/sshd_config
+            systemctl restart sshd
+            cat <<EOF | tee /etc/yum.repos.d/proxysql.repo
+            [proxysql_repo]
+            name= ProxySQL YUM repository
+            baseurl=https://repo.proxysql.com/ProxySQL/proxysql-2.0.x/centos/latest
+            gpgcheck=1
+            gpgkey=https://repo.proxysql.com/ProxySQL/repo_pub_key
+            EOF
+            yum install -y proxysql-2.0.8-1
+  ProxySQLSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via custom port and specific source
+      VpcId: !Ref 'VpcId'
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        SourceSecurityGroupId: !Ref 'SGIngressSSH'
+        FromPort: 40022
+        ToPort: 40022
+  InitEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref EC2Instance
