@@ -11,6 +11,11 @@ Parameters:
     Description: ID of an existing Security Group to allow ssh connection
     Type: 'AWS::EC2::SecurityGroup::Id'
     ConstraintDescription: Security Group ID doesn't exist
+  OSUser:
+    Description: User name which will allow to login through ssh
+    Type: String
+    AllowedPattern: '[a-z_][a-z0-9_-]*[$]?'
+    # https://www.unix.com/man-page/linux/8/useradd/
   VpcId:
     Description: ID of an existing VPC
     Type:  'AWS::EC2::VPC::Id'
@@ -42,15 +47,17 @@ Resources:
         Fn::Base64:
           !Sub |
             #!/bin/bash -x
-            adduser --user-group cfuser
-            mkdir /home/cfuser/.ssh
-            chmod 700 /home/cfuser/.ssh
-            touch /home/cfuser/.ssh/authorized_keys
-            chmod 600 /home/cfuser/.ssh/authorized_keys
-            chown -R cfuser:cfuser /home/cfuser/.ssh
-            echo ${PubKey} >> /home/cfuser/.ssh/authorized_keys
-            touch /etc/sudoers.d/cfuser
-            echo 'cfuser ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/cfuser
+            adduser --user-group ${OSUser}
+            mkdir /home/${OSUser}/.ssh
+            chmod 700 /home/${OSUser}/.ssh
+            touch /home/${OSUser}/.ssh/authorized_keys
+            chmod 600 /home/${OSUser}/.ssh/authorized_keys
+            chown -R ${OSUser}:${OSUser} /home/${OSUser}/.ssh
+            echo ${PubKey} >> /home/${OSUser}/.ssh/authorized_keys
+            cat /home/ec2-user/.ssh/authorized_keys >> /home/${OSUser}/.ssh/authorized_keys
+            userdel --remove ec2-user
+            touch /etc/sudoers.d/${OSUser}
+            echo '${OSUser} ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/${OSUser}
             sed -i 's/#Port 22/Port 40022/g' /etc/ssh/sshd_config
             systemctl restart sshd
             cat <<EOF | tee /etc/yum.repos.d/proxysql.repo
@@ -76,3 +83,7 @@ Resources:
     Properties:
       Domain: vpc
       InstanceId: !Ref EC2Instance
+Outputs:
+  Ec2PproxysqlId: 
+    Description: Instance ID ec2-proxysql
+    Value: !Ref EC2Instance

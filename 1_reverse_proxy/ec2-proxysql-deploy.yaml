@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  SGIngressSSH:
+    Description: ID of an existing Security Group to allow ssh connection
+    Type: 'AWS::EC2::SecurityGroup::Id'
+    ConstraintDescription: Security Group ID doesn't exist
+  VpcId:
+    Description: ID of an existing VPC
+    Type:  'AWS::EC2::VPC::Id'
+    ConstraintDescription: VPC ID doesn't exist
+  AZ1SubnetId:
+    Description: ID of an existing SubnetId
+    Type:  'AWS::EC2::Subnet::Id'
+    ConstraintDescription: Subnet ID doesn't exist
+  AZ2SubnetId:
+    Description: ID of an existing SubnetId
+    Type:  'AWS::EC2::Subnet::Id'
+    ConstraintDescription: Subnet ID doesn't exist
+  InstanceType:
+    AllowedValues:
+    - t3.micro
+    Default: t3.micro
+    Type: String
+    Description: EC2 instance type. t3.micro is only acceptable type of instance
+  AMI:
+    Description: ID of an existing SubnetId
+    Type:  'AWS::EC2::Image::Id'
+    ConstraintDescription: AMI ID doesn't exist
+Resources:
+  Instance1:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: !Ref 'InstanceType'
+      ImageId: !Ref 'AMI'
+      SubnetId: !Ref 'AZ1SubnetId'
+      SecurityGroupIds: 
+        - !GetAtt ProxySQLSecurityGroup.GroupId
+  Instance2:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: !Ref 'InstanceType'
+      ImageId: !Ref 'AMI'
+      SubnetId: !Ref 'AZ2SubnetId'
+      SecurityGroupIds: 
+        - !GetAtt ProxySQLSecurityGroup.GroupId
+  ProxySQLSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via custom port and specific source
+      VpcId: !Ref 'VpcId'
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        SourceSecurityGroupId: !Ref 'SGIngressSSH'
+        FromPort: 40022
+        ToPort: 40022
