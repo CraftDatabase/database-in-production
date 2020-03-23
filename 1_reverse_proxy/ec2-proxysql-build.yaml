@@ -4,18 +4,18 @@ Parameters:
     Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
     Type: 'AWS::EC2::KeyPair::KeyName'
     ConstraintDescription: key name doesn't exist
-  PubKey:
-    Description: Public Key for secuser
-    Type: String
-  SGIngressSSH:
-    Description: ID of an existing Security Group to allow ssh connection
-    Type: 'AWS::EC2::SecurityGroup::Id'
-    ConstraintDescription: Security Group ID doesn't exist
   OSUser:
     Description: User name which will allow to login through ssh
     Type: String
     AllowedPattern: '[a-z_][a-z0-9_-]*[$]?'
     # https://www.unix.com/man-page/linux/8/useradd/
+  PubKey:
+    Description: Public Key for OSUser
+    Type: String
+  SGIngressSSH:
+    Description: ID of an existing Security Group to allow ssh connection
+    Type: 'AWS::EC2::SecurityGroup::Id'
+    ConstraintDescription: Security Group ID doesn't exist
   VpcId:
     Description: ID of an existing VPC
     Type:  'AWS::EC2::VPC::Id'
@@ -68,6 +68,44 @@ Resources:
             gpgkey=https://repo.proxysql.com/ProxySQL/repo_pub_key
             EOF
             yum install -y proxysql-2.0.8-1
+            mkdir /opt/proxysql
+            chown -R proxysql:proxysql /opt/proxysql
+            cat <<EOF | tee /etc/proxysql.cnf
+            datadir="/opt/proxysql"
+            admin_variables=
+            {
+             	admin_credentials="${OSUser}:admin"
+            	mysql_ifaces="0.0.0.0:46032"
+            	refresh_interval=2000
+            	debug=false
+            }
+            mysql_variables=
+            {
+            	threads=4
+            	max_connections=2048
+            	default_query_delay=0
+            	default_query_timeout=36000000
+            	have_compress=true
+            	poll_timeout=2000
+            	interfaces="0.0.0.0:43306;/opt/proxysql/proxysql.sock"
+            	default_schema="information_schema"
+            	stacksize=1048576
+            	server_version="5.7"
+            	connect_timeout_server=3000
+            	monitor_username="monitor"
+            	monitor_password="monitor"
+            	monitor_history=600000
+            	monitor_connect_interval=60000
+            	monitor_ping_interval=10000
+            	monitor_read_only_interval=1500
+            	monitor_read_only_timeout=500
+            	ping_interval_server_msec=120000
+            	ping_timeout_server=500
+            	commands_stats=true
+            	sessions_sort=true
+            	connect_retries_on_failure=10
+            }
+            EOF
   ProxySQLSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
