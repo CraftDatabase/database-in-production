@@ -2,15 +2,17 @@
 1. The command to run build-template to initialize ec2 with proxysql 
 ```bash
 aws cloudformation create-stack --region us-west-2 \
-  --stack-name proxysql-$(date +%d%H%M%S) \
-  --template-body file://ec2-proxysql-build.yaml \
-  --parameters \
-    ParameterKey="KeyName",ParameterValue="KEY NAME" \
-    ParameterKey="PubKey",ParameterValue="PUBLIC KEY" \
-    ParameterKey="SGIngressSSH",ParameterValue="SECURITY GROUP ID" \
-    ParameterKey="OSUser",ParameterValue="OS USER NAME" \
-    ParameterKey="VpcId",ParameterValue="VPC ID" \
-    ParameterKey="SubnetId",ParameterValue="SUBNET ID"
+--stack-name proxysql-$(date +%d%H%M%S) \
+--template-body file://ec2-proxysql-build.yaml \
+--parameters \
+  ParameterKey="KeyName",ParameterValue="{KEY_NAME}" \
+  ParameterKey="PubKey",ParameterValue="{PUBLIC_KEY}" \
+  ParameterKey="SGIngressSSH",ParameterValue="{SSH_INGRESS_SECURITY_GROUP_ID}" \
+  ParameterKey="OSUser",ParameterValue="{OS_USER_NAME}" \
+  ParameterKey="VpcId",ParameterValue="{VPC_ID}" \
+  ParameterKey="SubnetId",ParameterValue="{SUBNET_ID}" \
+  ParameterKey="MySQLEndpoints",ParameterValue=`aws rds describe-db-instances --region {REGION} --filters Name=db-cluster-id,Values={DB_CLUSTER_ID} --query 'DBInstances[*].Endpoint.Address' --output text| sed 's/\t/\;/'`
+
 ```
 2. Getting id of EC2 Inatance which made by previous step
 ```bash
@@ -67,8 +69,8 @@ The policy have to be granted for executing cloudformation
                 "ec2:DisassociateAddress",
                 "ec2:AuthorizeSecurityGroupEgress",
                 "ec2:AuthorizeSecurityGroupIngress",
-                "ec2:DescribeInstances",
                 "ec2:DescribeAddresses",
+                "ec2:DescribeInstances",
                 "ec2:TerminateInstances",
                 "ec2:CreateImage",
                 "ec2:RunInstances",
@@ -82,6 +84,7 @@ The policy have to be granted for executing cloudformation
                 "ec2:CreateSecurityGroup",
                 "cloudformation:DeleteStack",
                 "ec2:DeleteSecurityGroup",
+                "rds:DescribeDBInstances",
                 "ec2:DescribeSubnets",
                 "ec2:DescribeKeyPairs",
                 "ec2:AssociateAddress"

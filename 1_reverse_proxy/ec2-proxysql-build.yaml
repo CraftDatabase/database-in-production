@@ -4,18 +4,18 @@ Parameters:
     Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
     Type: 'AWS::EC2::KeyPair::KeyName'
     ConstraintDescription: key name doesn't exist
-  PubKey:
-    Description: Public Key for secuser
-    Type: String
-  SGIngressSSH:
-    Description: ID of an existing Security Group to allow ssh connection
-    Type: 'AWS::EC2::SecurityGroup::Id'
-    ConstraintDescription: Security Group ID doesn't exist
   OSUser:
     Description: User name which will allow to login through ssh
     Type: String
     AllowedPattern: '[a-z_][a-z0-9_-]*[$]?'
     # https://www.unix.com/man-page/linux/8/useradd/
+  PubKey:
+    Description: Public Key for OSUser
+    Type: String
+  SGIngressSSH:
+    Description: ID of an existing Security Group to allow ssh connection
+    Type: 'AWS::EC2::SecurityGroup::Id'
+    ConstraintDescription: Security Group ID doesn't exist
   VpcId:
     Description: ID of an existing VPC
     Type:  'AWS::EC2::VPC::Id'
@@ -33,6 +33,9 @@ Parameters:
   LatestAmiId:
     Type:  'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+  MySQLEndpoints:
+    Description: DB Cluster ID which is gonna have target server on proxysql
+    Type: String
 Resources:
   EC2Instance:
     Type: 'AWS::EC2::Instance'
@@ -47,6 +50,7 @@ Resources:
         Fn::Base64:
           !Sub |
             #!/bin/bash -x
+            printf "user setting"
             adduser --user-group ${OSUser}
             mkdir /home/${OSUser}/.ssh
             chmod 700 /home/${OSUser}/.ssh
@@ -58,8 +62,10 @@ Resources:
             userdel --remove ec2-user
             touch /etc/sudoers.d/${OSUser}
             echo '${OSUser} ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/${OSUser}
+            printf "ssh setting"
             sed -i 's/#Port 22/Port 40022/g' /etc/ssh/sshd_config
             systemctl restart sshd
+            printf "install proxysql"
             cat <<EOF | tee /etc/yum.repos.d/proxysql.repo
             [proxysql_repo]
             name= ProxySQL YUM repository
@@ -68,10 +74,103 @@ Resources:
             gpgkey=https://repo.proxysql.com/ProxySQL/repo_pub_key
             EOF
             yum install -y proxysql-2.0.8-1
+            printf "configure proxysql"
+            cat <<EOF | tee /etc/proxysql.cnf
+            datadir="/var/lib/proxysql"
+            admin_variables=
+            {
+             	admin_credentials="${OSUser}:admin"
+            	mysql_ifaces="0.0.0.0:46032"
+            	refresh_interval=2000
+            	debug=false
+            }
+            mysql_variables=
+            {
+            	threads=4
+            	max_connections=2048
+            	default_query_delay=0
+            	default_query_timeout=36000000
+            	have_compress=true
+            	poll_timeout=2000
+            	interfaces="0.0.0.0:43306;0.0.0.0:43307"
+            	default_schema="information_schema"
+            	stacksize=1048576
+            	server_version="5.7.12"
+            	connect_timeout_server=3000
+            	monitor_username="monitor"
+            	monitor_password="monitor"
+            	monitor_history=600000
+            	monitor_connect_interval=60000
+            	monitor_ping_interval=10000
+            	monitor_read_only_interval=1500
+            	monitor_read_only_timeout=500
+            	ping_interval_server_msec=120000
+            	ping_timeout_server=500
+            	commands_stats=true
+            	sessions_sort=true
+            	connect_retries_on_failure=10
+            }
+            mysql_users:
+            (
+            	{
+            		username = "my${OSUser}"
+            		password = "my${OSUser}"
+            		default_hostgroup = 1
+            	}
+            )
+            mysql_query_rules:
+            (
+            	{
+            		rule_id=1
+            		active=1
+            		proxy_port = 43306
+            		destination_hostgroup=1
+            		apply=1
+            	},
+            	{
+            		rule_id=2
+            		active=1
+            		proxy_port = 43307
+            		destination_hostgroup=2
+            		apply=1
+            	}
+            )
+            mysql_replication_hostgroups=
+            (
+            	{
+            		writer_hostgroup=1
+            		reader_hostgroup=2
+            		check_type="innodb_read_only"
+            	}
+            )
+            EOF
+            cat <<EOF | tee /root/configen.tmp
+            #!/bin/bash
+            IFS=';'
+            body="mysql_servers =\n(%s)"
+            server="\t{\n\t\thostgroup = %s\n\t\taddress = \"%s\"\n\t\tport = 43306\n\t}"
+            mysql_servers=""
+            delimiter=","
+            read -ra endpoint_arr <<< "$ ESC 1"
+            length=$ ESC (($ ESC {#endpoint_arr[@]}-1));
+            for i in "$ ESC {!endpoint_arr[@]}"
+            do
+              mysql_servers=$ ESC mysql_servers$ ESC (printf $ ESC server '1' $ ESC {endpoint_arr[i]})$ ESC delimiter$ ESC '\n'
+              if [ $ ESC i -eq $ ESC length ]
+              then
+                delimiter=""
+              fi
+              mysql_servers=$ ESC mysql_servers$ ESC (printf $ ESC server '2' $ ESC {endpoint_arr[i]})$ ESC delimiter$ ESC '\n'
+            done
+            printf $ ESC body $ ESC '\n'$ ESC mysql_servers
+            EOF
+            sed 's/ ESC //g' /root/configen.tmp > /root/configen.sh
+            chmod +x /root/configen.sh
+            /root/configen.sh '${MySQLEndpoints}' >> /etc/proxysql.cnf
   ProxySQLSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Enable SSH access via custom port and specific source
+      GroupDescription: ProxySQL Security Group
       VpcId: !Ref 'VpcId'
       SecurityGroupIngress:
       - IpProtocol: tcp
@@ -83,7 +182,3 @@ Resources:
     Properties:
       Domain: vpc
       InstanceId: !Ref EC2Instance
-Outputs:
-  Ec2PproxysqlId: 
-    Description: Instance ID ec2-proxysql
-    Value: !Ref EC2Instance
