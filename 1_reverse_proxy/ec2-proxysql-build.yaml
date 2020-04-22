@@ -65,6 +65,27 @@ Resources:
             printf "ssh setting"
             sed -i 's/#Port 22/Port 40022/g' /etc/ssh/sshd_config
             systemctl restart sshd
+            printf "tune os"
+            echo 'proxysql   soft    nproc   82720    '       >> /etc/security/limits.conf
+            echo 'proxysql   hard    nproc   82720    '       >> /etc/security/limits.conf
+            echo 'proxysql   soft    nofile  65536    '       >> /etc/security/limits.conf
+            echo 'proxysql   hard    nofile  65536    '       >> /etc/security/limits.conf
+            echo 'proxysql   soft    stack   unlimited'       >> /etc/security/limits.conf
+            echo 'proxysql   hard    stack   unlimited'       >> /etc/security/limits.conf
+            echo 'proxysql   soft    memlock 125829120'       >> /etc/security/limits.conf
+            echo 'proxysql   hard    memlock 125829120'       >> /etc/security/limits.conf
+            echo 'proxysql   soft    core    unlimited'       >> /etc/security/limits.conf
+            echo 'proxysql   hard    core    unlimited'       >> /etc/security/limits.conf
+            echo 'net.core.netdev_max_backlog = 65535   '     >> /etc/sysctl.conf
+            echo 'net.core.somaxconn = 65535            '     >> /etc/sysctl.conf
+            echo 'net.ipv4.tcp_max_syn_backlog = 65535  '     >> /etc/sysctl.conf
+            echo 'net.core.rmem_default = 16777216      '     >> /etc/sysctl.conf
+            echo 'net.core.rmem_max = 16777216          '     >> /etc/sysctl.conf
+            echo 'net.core.wmem_default = 16777216      '     >> /etc/sysctl.conf
+            echo 'net.core.wmem_max = 16777216          '     >> /etc/sysctl.conf
+            echo 'net.ipv4.tcp_rmem = 4096 87380 8388608'     >> /etc/sysctl.conf
+            echo 'net.ipv4.tcp_wmem = 4096 87380 8388608'     >> /etc/sysctl.conf
+            echo 'net.ipv4.ip_local_port_range = 16384 65535' >> /etc/sysctl.conf
             printf "install proxysql"
             cat <<EOF | tee /etc/yum.repos.d/proxysql.repo
             [proxysql_repo]
