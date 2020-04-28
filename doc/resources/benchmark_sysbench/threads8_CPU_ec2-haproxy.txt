@@ -1,0 +1,27 @@
+$ aws cloudwatch get-metric-statistics --region us-west-2 --metric-name CPUUtilization --namespace AWS/EC2 --statistics Average --dimensions Name=InstanceId,Value=* \
+> --start-time 2020-04-28T04:20:00Z --end-time 2020-04-28T04:40:00Z --period 10
+{
+    "Datapoints": [
+        {
+            "Timestamp": "2020-04-28T04:30:00Z",
+            "Average": 17.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T04:25:00Z",
+            "Average": 17.2,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T04:35:00Z",
+            "Average": 12.5,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T04:20:00Z",
+            "Average": 7.0,
+            "Unit": "Percent"
+        }
+    ],
+    "Label": "CPUUtilization"
+}

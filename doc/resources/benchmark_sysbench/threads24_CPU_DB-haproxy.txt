@@ -1,0 +1,97 @@
+$ aws cloudwatch get-metric-statistics --region us-west-2 --metric-name CPUUtilization --namespace AWS/RDS --statistics Average --dimensions Name=DBInstanceIdentifier,Value=* \
+> --start-time 2020-04-28T05:25:00Z --end-time 2020-04-28T05:45:00Z --period 10
+{
+    "Datapoints": [
+        {
+            "Timestamp": "2020-04-28T05:36:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:27:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:28:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:37:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:25:00Z",
+            "Average": 19.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:34:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:35:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:26:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:32:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:40:00Z",
+            "Average": 75.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:33:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:42:00Z",
+            "Average": 7.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:41:00Z",
+            "Average": 7.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:29:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:38:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:31:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:30:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        },
+        {
+            "Timestamp": "2020-04-28T05:39:00Z",
+            "Average": 92.0,
+            "Unit": "Percent"
+        }
+    ],
+    "Label": "CPUUtilization"
+}
